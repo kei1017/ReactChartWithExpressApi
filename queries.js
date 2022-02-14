@@ -7,10 +7,12 @@ const pool = new Pool({
   port: 5432,
 })
 
+// auth apis
+
 const getUsers = (req, res) => {
   pool.query('SELECT * FROM accounts ORDER BY id ASC', (error, results) => {
     if (error) {
-      res.status(200).json(results.rows)
+      res.status(400).send({message: error.toString()});
     } else {
       res.status(200).json(results.rows)
     }
@@ -85,10 +87,42 @@ const authUser = (req, res) => {
       if (error) {
         res.status(400).send({message: error.toString()});
       } else {
-        res.status(200).send(results.rows.length > 0)
+        res.status(200).send(results.rows.length > 0 ? results.rows[0].username : "");
       }
     }
   )
+}
+
+// filtering apis
+
+const getData = (req, res) => {
+  const { filter1, filter2 } = req.body
+
+  let filters = '1=1'
+  if (!!filter1) {
+    filters = `${filters} AND name='${filter1}'`
+  }
+  if (!!filter2) {
+    switch(filter2) {
+      case 'gte-10000':
+        filters = `${filters} AND amount>=10000`
+        break;
+      case 'gte-1000':
+        filters = `${filters} AND amount>=1000`
+        break;
+      case 'lt-1000':
+        filters = `${filters} AND amount<1000`
+        break;
+    }
+  }
+
+  pool.query(`SELECT * FROM deposits WHERE ${filters} ORDER BY record_time ASC`, (error, results) => {
+    if (error) {
+      res.status(400).send({message: error.toString()});
+    } else {
+      res.status(200).json(results.rows)
+    }
+  })
 }
 
 module.exports = {
@@ -98,4 +132,5 @@ module.exports = {
   updateUser,
   deleteUser,
   authUser,
+  getData,
 }
