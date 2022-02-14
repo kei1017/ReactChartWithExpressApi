@@ -86,8 +86,10 @@ const authUser = (req, res) => {
     (error, results) => {
       if (error) {
         res.status(400).send({message: error.toString()});
-      } else {
+      } if (results.rows.length > 0) {
         res.status(200).send(results.rows.length > 0 ? results.rows[0].username : "");
+      } else {
+        res.status(400).send({message: 'Invalid email or wrong password.'});
       }
     }
   )
