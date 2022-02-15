@@ -1,3 +1,5 @@
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 const Pool = require("pg").Pool;
 const pool = new Pool({
   user: "postgres",
@@ -36,7 +38,7 @@ const createUser = (req, res) => {
 
   pool.query(
     "INSERT INTO accounts (username, email, password) VALUES ($1, $2, $3)",
-    [username, email, password],
+    [username, email, bcrypt.hashSync(password, 8)],
     (error, results) => {
       if (error) {
         res.status(400).send({ message: error.toString() });
@@ -81,18 +83,42 @@ const authUser = (req, res) => {
   const { email, password } = req.body;
 
   pool.query(
-    "SELECT * FROM accounts WHERE email = $1 AND password = $2",
-    [email, password],
+    "SELECT * FROM accounts WHERE email = $1",
+    [email],
     (error, results) => {
       if (error) {
         res.status(400).send({ message: error.toString() });
       }
       if (results.rows.length > 0) {
-        res
-          .status(200)
-          .send(results.rows.length > 0 ? results.rows[0].username : "");
+        const user = results.rows[0];
+        const passwordIsValid = bcrypt.compareSync(password, user.password);
+        // checking if password was valid and send response accordingly
+        if (!passwordIsValid) {
+          return res.status(401).send({
+            accessToken: null,
+            message: "Invalid password!",
+          });
+        }
+        const token = jwt.sign(
+          {
+            id: user.id,
+          },
+          process.env.API_SECRET,
+          {
+            expiresIn: 86400,
+          }
+        );
+        res.status(200).send({
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+          },
+          message: "Login successful",
+          accessToken: token,
+        });
       } else {
-        res.status(400).send({ message: "Invalid email or wrong password." });
+        res.status(400).send({ message: "Unregistered email!" });
       }
     }
   );
